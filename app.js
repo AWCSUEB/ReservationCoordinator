@@ -73,6 +73,7 @@ function readyTest() {
       var providerlist = Object.keys(providers);
       for (i=0; i<providerlist.length; i++) {
         var p = providers[providerlist[i]];
+        p.playing = true;
         request({
           method: "POST",
           uri: p.uri + 'reset?n=' + routesToGen,
@@ -105,11 +106,6 @@ function readyTest() {
           agents[a].ready = false;
           agents[a].playing = true;
         }
-      }
-
-      // mark playing providers
-      for (var p in providers) {
-        providers[p].playing = true;
       }
 
       // client will start polling ready frequently and will grab routes and customer list when available
@@ -196,7 +192,7 @@ function reconnectTest() {
 }
 
 function cleanupTest() {
-  if (currentGameState != NotReady) {
+  if (currentGameState != "NotReady") {
     return;
   }
 
