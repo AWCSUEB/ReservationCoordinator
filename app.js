@@ -53,6 +53,8 @@ var timerHandle;
 var previousGameState = "Unknown";
 var currentGameState = "NotReady";
 
+console.log("PORT=" + process.env.PORT);
+
 function setGameState(state) {
   previousGameState = currentGameState;
   currentGameState = state;
@@ -73,30 +75,35 @@ function readyTest() {
     setTimeout(function() {
       // reset and collect routes from service providers
       var providerlist = Object.keys(providers);
-      for (i=0; i<providerlist.length; i++) {
+      for (var i=0; i<providerlist.length; i++) {
         var p = providers[providerlist[i]];
         p.playing = true;
+
+        function cb(p) {
+          return function (err, res, body) {
+            var tmproutes = body;
+
+            // load all route pairs e.g. AP,CF etc
+            var routeslist = Object.keys(tmproutes);
+
+            // for each route in list push onto array for that pair
+            for (var j = 0; j < routeslist.length; j++) {
+              var pair = routeslist[j];
+              if (!routes[pair]) {
+                routes[pair] = [];
+              }
+
+              routes[pair].push(tmproutes[pair]);
+              p.routes.push(tmproutes[pair]);
+            }
+          }
+        }
+
         request({
           method: "POST",
           uri: p.uri + 'reset?n=' + routesToGen,
           json: true
-        }, function(err, res, body) {
-          var tmproutes = body;
-
-          // load all route pairs e.g. AP,CF etc
-          var routeslist = Object.keys(tmproutes);
-
-          // for each route in list push onto array for that pair
-          for (j=0; j<routeslist.length; j++) {
-            var pair = routeslist[j];
-            if (!routes[pair]) {
-              routes[pair] = [];
-            }
-
-            routes[pair].push(tmproutes[pair]);
-            p.routes.push(tmproutes[pair]);
-          }
-        })
+        }, cb(p));
       }
 
       // generate customer list
@@ -203,14 +210,11 @@ function cleanupTest() {
   var last;
   var now;
 
-  if (dc.badAgents.length > 0) {
-    console.log("*** Deleting " + dc.badAgents.length + " stale agents ***");
-  }
-
   for (var a in dc.badAgents) {
     last = agents[dc.badAgents[a]].lastpingtime;
     now = new Date().getTime();
-    if (now - last > 30000) {
+    if (now - last > 10000) {
+      console.log("*** Deleting " + agents[dc.badAgents[a]].name + " ***");
       delete agents[dc.badAgents[a]];
     }
   }
@@ -222,7 +226,8 @@ function cleanupTest() {
   for (var p in dc.badProviders) {
     last = providers[dc.badProviders[p]].lastpingtime;
     now = new Date().getTime();
-    if (now - last > 30000) {
+    if (now - last > 10000) {
+      console.log("*** Deleting " + providers[dc.badProviders[p]].name + " ***");
       delete providers[dc.badProviders[p]];
     }
   }
@@ -360,7 +365,5 @@ app.use(function(err, req, res, next) {
     error: err
   }});
 });
-
-app.listen(process.env.PORT);
 
 module.exports = app;
