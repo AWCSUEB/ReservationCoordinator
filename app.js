@@ -43,6 +43,7 @@ var lastProviderId = 1;
 var routes = {};
 var timer = timerDefault;
 var timerHandle;
+var resetCount = 0;
 
 // game states
 // NotReady: waiting for agents and sp to connect and ready
@@ -170,7 +171,6 @@ function disconnectTest() {
   // Only pause game for disconnected SP, not for disconnected Agent
   if (dc.badProviders > 0) {
     setGameState("Disconnected");
-    clearInterval(timerHandle);
   }
 }
 
@@ -181,31 +181,43 @@ function reconnectTest() {
 
   var dc = utility.disconnectCount(agents, providers, currentGameState);
 
-  if (dc.badAgents == 0 && dc.badProviders == 0) {
+  // Only resume game for reconnected SP, not for bad Agents
+  if (dc.badProviders == 0) {
     setGameState("Running");
     timerHandle = setInterval(finishedTest, 1000);
+  } else {
+    resetCount++;
+    if (resetCount > 10) {
+      timer = 0; // Trigger finishedTest
+    }
   }
 }
 
 function finishedTest() {
-  timer--;
+  if (currentGameState != "Disconnected") {
+    timer--;
+  }
+
   if (timer == 0) {
     setGameState("NotReady");
     clearInterval(timerHandle);
     timer = timerDefault;
     customers = {};
     routes = {};
+    resetCount = 0;
+
+    for (var a in agents) {
+      agents[a].playing = false;
+    }
+
     for (var p in providers) {
+      providers[p].playing = false;
       providers[p].routes = []
     }
   }
 }
 
 function cleanupTest() {
-  if (currentGameState != "NotReady") {
-    return;
-  }
-
   var dc = utility.disconnectCount(agents, providers, currentGameState);
   var last;
   var now;
@@ -214,21 +226,21 @@ function cleanupTest() {
     last = agents[dc.badAgents[a]].lastpingtime;
     now = new Date().getTime();
     if (now - last > 10000) {
-      console.log("*** Deleting " + agents[dc.badAgents[a]].name + " ***");
-      delete agents[dc.badAgents[a]];
+      if (currentGameState == "NotReady" || (currentGameState != "NotReady" && agents[dc.badAgents[a]].playing == false)) {
+        console.log("*** Deleting " + agents[dc.badAgents[a]].name + " ***");
+        delete agents[dc.badAgents[a]];
+      }
     }
-  }
-
-  if (dc.badProviders.length > 0) {
-    console.log("*** Deleting " + dc.badProviders.length + " stale providers ***");
   }
 
   for (var p in dc.badProviders) {
     last = providers[dc.badProviders[p]].lastpingtime;
     now = new Date().getTime();
     if (now - last > 10000) {
-      console.log("*** Deleting " + providers[dc.badProviders[p]].name + " ***");
-      delete providers[dc.badProviders[p]];
+      if (currentGameState == "NotReady") {
+        console.log("*** Deleting " + providers[dc.badProviders[p]].name + " ***");
+        delete providers[dc.badProviders[p]];
+      }
     }
   }
 }
@@ -304,7 +316,8 @@ app.put('/agents/:id/ping', function(req, res, next) {
     "currentGameState": currentGameState,
     "timer": timer,
     "agents": agents,
-    "customers": customers
+    "customers": customers,
+    "providers": providers
   });
 });
 
@@ -346,6 +359,7 @@ app.post('/providers', function(req, res, next) {
   providers[lastProviderId].lastpingtime = new Date();
   providers[lastProviderId].lasterrcount = 0;
   providers[lastProviderId].active = true;
+  providers[lastProviderId].playing = false;
   providers[lastProviderId].routes = [];
   res.send({"id": lastProviderId});
   lastProviderId++;
