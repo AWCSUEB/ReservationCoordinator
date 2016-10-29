@@ -168,8 +168,8 @@ function disconnectTest() {
 
   var dc = utility.disconnectCount(agents, providers, currentGameState);
 
-  // Only pause game for disconnected SP, not for disconnected Agent
-  if (dc.badProviders > 0) {
+  // Only pause game for disconnected SP, not for disconnected Agent unless all are bad
+  if (dc.badProviders > 0 || dc.goodAgents == 0) {
     setGameState("Disconnected");
   }
 }
@@ -182,7 +182,7 @@ function reconnectTest() {
   var dc = utility.disconnectCount(agents, providers, currentGameState);
 
   // Only resume game for reconnected SP, not for bad Agents
-  if (dc.badProviders == 0) {
+  if (dc.badProviders == 0 && dc.goodAgents > 0) {
     setGameState("Running");
     timerHandle = setInterval(finishedTest, 1000);
   } else {
