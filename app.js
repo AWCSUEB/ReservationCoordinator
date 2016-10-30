@@ -41,6 +41,15 @@ var providers = {};
 var lastProviderId = 1;
 
 var routes = {};
+
+// Each reservation should have
+// ID
+// Agent ID
+// Customer ID
+// Route list
+// 2PC Status
+var reservations = {};
+
 var timer = timerDefault;
 var timerHandle;
 var resetCount = 0;
@@ -115,6 +124,7 @@ function readyTest() {
         if (agents[a].ready) {
           agents[a].ready = false;
           agents[a].playing = true;
+          agents[a].commission = 0;
         }
       }
 
@@ -184,7 +194,6 @@ function reconnectTest() {
   // Only resume game for reconnected SP, not for bad Agents
   if (dc.badProviders == 0 && dc.goodAgents > 0) {
     setGameState("Running");
-    timerHandle = setInterval(finishedTest, 1000);
   } else {
     resetCount++;
     if (resetCount > 10) {
@@ -196,6 +205,10 @@ function reconnectTest() {
 function finishedTest() {
   if (currentGameState != "Disconnected") {
     timer--;
+  }
+
+  if (currentGameState == "NotReady") {
+    timer = 0;
   }
 
   if (timer == 0) {
@@ -270,15 +283,6 @@ app.get('/', function(req, res, next) {
   })
 });
 
-app.delete('/', function(req, res, next) {
-  // reset game
-  // don't reset last id counters in case of floating clients trying to reuse them
-  agents = {};
-  customers = {};
-  routes = {};
-  ready = false;
-});
-
 // get agent info and ready status
 app.get('/agents', function(req, res, next) {
   res.send(agents);
@@ -297,6 +301,7 @@ app.post('/agents', function(req, res, next) {
   agents[nextAgentId].active = true;
   agents[nextAgentId].playing = false;
   agents[nextAgentId].ready = false;
+  agents[nextAgentId].commission = 0;
 
   // return agent id
   res.send({
@@ -363,6 +368,26 @@ app.post('/providers', function(req, res, next) {
   providers[lastProviderId].routes = [];
   res.send({"id": lastProviderId});
   lastProviderId++;
+});
+
+app.get('/reservations', function(req, res, next) {
+  res.send(reservations);
+});
+
+app.get('/reservations/:id', function(req, res, next) {
+  if (reservations[req.params.id]) {
+    res.send(reservations[req.params.id]);
+  } else {
+    res.statusCode = 404;
+    res.send();
+  }
+});
+
+// Submit a new reservation transaction
+app.post('/reservations', function(req, res, next) {
+  // Send ajax request of each route component to the respective SP
+  // Requires agent id, customer id, route list
+  // each route has spid, c1, c2, cost
 });
 
 // catch 404 and forward to error handler
