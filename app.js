@@ -38,7 +38,7 @@ var customers = {};
 // URI
 // Last comm time
 var providers = {};
-var lastProviderId = 1;
+var nextProviderId = 1;
 
 var routes = {};
 
@@ -49,6 +49,7 @@ var routes = {};
 // Route list
 // 2PC Status
 var reservations = {};
+var nextReservationId = 1;
 
 var timer = timerDefault;
 var timerHandle;
@@ -217,6 +218,7 @@ function finishedTest() {
     timer = timerDefault;
     customers = {};
     routes = {};
+    reservations = {};
     resetCount = 0;
 
     for (var a in agents) {
@@ -258,16 +260,34 @@ function cleanupTest() {
   }
 }
 
+function reservationTest() {
+  if (currentGameState != "Running") {
+    return;
+  }
+
+  for (var r in reservations) {
+    if (reservations[r].status == "CancelReady") {
+      reservations[r].status = "Cancelling";
+    }
+
+    if (reservations[r].status == "CommitReady") {
+      reservations[r].status = "Committing";
+    }
+  }
+}
+
 setInterval(readyTest, 1000);
 setInterval(runningTest, 1000);
 setInterval(disconnectTest, 1000);
 setInterval(reconnectTest, 1000);
 setInterval(cleanupTest, 1000);
+setInterval(reservationTest, 1000);
 
 // CORS
 app.use(function(req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type')
   next();
 });
 
@@ -360,14 +380,14 @@ app.put('/providers/:id/ping', function(req, res, next) {
 
 // Register a new provider
 app.post('/providers', function(req, res, next) {
-  providers[lastProviderId] = req.body;
-  providers[lastProviderId].lastpingtime = new Date();
-  providers[lastProviderId].lasterrcount = 0;
-  providers[lastProviderId].active = true;
-  providers[lastProviderId].playing = false;
-  providers[lastProviderId].routes = [];
-  res.send({"id": lastProviderId});
-  lastProviderId++;
+  providers[nextProviderId] = req.body;
+  providers[nextProviderId].lastpingtime = new Date();
+  providers[nextProviderId].lasterrcount = 0;
+  providers[nextProviderId].active = true;
+  providers[nextProviderId].playing = false;
+  providers[nextProviderId].routes = [];
+  res.send({"id": nextProviderId});
+  nextProviderId++;
 });
 
 app.get('/reservations', function(req, res, next) {
@@ -388,6 +408,40 @@ app.post('/reservations', function(req, res, next) {
   // Send ajax request of each route component to the respective SP
   // Requires agent id, customer id, route list
   // each route has spid, c1, c2, cost
+  var routes = req.body.routes;
+  reservations[nextReservationId] = req.body;
+  reservations[nextReservationId].status = "Trying";
+  reservations[nextReservationId].left = Object.keys(req.body.routes).length;
+
+
+  for (var r in routes) {
+    var p = providers[routes[r].spid];
+    request({
+      method: 'PUT',
+      uri: p.uri + 'try/' + r,
+      timeout: 30000,
+      body: {
+        id: nextReservationId
+      },
+      json: true
+    }, function (err, res, body) {
+      var id = body.id;
+      if (reservations[id].status == "Trying") {
+        if (!err) {
+          // if all tries are successful let another timed function process commit
+          reservations[id].left--;
+          if (reservations[id].left == 0) {
+            reservations[id].status = "CommitReady";
+          }
+        } else {
+          // set a failed status and let another timed function process cancel
+          reservations[id].status = "CancelReady";
+        }
+      }
+    });
+  }
+
+  nextReservationId++;
 });
 
 // catch 404 and forward to error handler
