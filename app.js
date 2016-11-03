@@ -265,13 +265,72 @@ function reservationTest() {
     return;
   }
 
-  for (var r in reservations) {
-    if (reservations[r].status == "CancelReady") {
-      reservations[r].status = "Cancelling";
+  var route;
+  var p;
+
+  for (var re in reservations) {
+    if (reservations[re].status == "CancelReady") {
+      reservations[re].status = "Cancelling";
+      reservations[re].left = Object.keys(reservations[re].routes).length;
+
+      for (route in reservations[re].routes) {
+        p = providers[reservations[re].routes[route].spid];
+        request({
+          method: 'PUT',
+          uri: p.uri + 'cancel/' + route,
+          timeout: 30000,
+          body: {
+            id: re
+          },
+          json: true
+        }, function (err, res, body) {
+          var id = body.id;
+          var route = body.route;
+
+          if (err) {
+            console.log("[CANCEL FAILED] Reservation " + id + ", Route " + route + ": " + err.message);
+          }
+
+          reservations[id].left--;
+
+          if (reservations[id].left == 0) {
+            reservations[id].status = "Cancelled";
+            console.log("[CANCELLED] Reservation " + id);
+          }
+        });
+      }
     }
 
-    if (reservations[r].status == "CommitReady") {
-      reservations[r].status = "Committing";
+    if (reservations[re].status == "ConfirmReady") {
+      reservations[re].status = "Confirming";
+      reservations[re].left = Object.keys(reservations[re].routes).length;
+
+      for (route in reservations[re].routes) {
+        p = providers[reservations[re].routes[route].spid];
+        request({
+          method: 'PUT',
+          uri: p.uri + 'confirm/' + route,
+          timeout: 30000,
+          body: {
+            id: re
+          },
+          json: true
+        }, function (err, res, body) {
+          var id = body.id;
+          var route = body.route;
+
+          if (err) {
+            console.log("[CONFIRM FAILED] Reservation " + id + ", Route " + route + ": " + err.message);
+          }
+
+          reservations[id].left--;
+          if (reservations[id].left == 0) {
+            reservations[id].status = "Committed";
+            console.log("[CONFIRMED] Reservation " + id);
+          }
+        });
+      }
+
     }
   }
 }
@@ -287,7 +346,7 @@ setInterval(reservationTest, 1000);
 app.use(function(req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type')
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
   next();
 });
 
@@ -431,11 +490,13 @@ app.post('/reservations', function(req, res, next) {
           // if all tries are successful let another timed function process commit
           reservations[id].left--;
           if (reservations[id].left == 0) {
-            reservations[id].status = "CommitReady";
+            reservations[id].status = "ConfirmReady";
+            console.log("[CONFIRM READY] Reservation " + id);
           }
         } else {
           // set a failed status and let another timed function process cancel
           reservations[id].status = "CancelReady";
+          console.log("[CANCEL READY] Reservation " + id);
         }
       }
     });
