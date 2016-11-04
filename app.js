@@ -327,6 +327,27 @@ function reservationTest() {
           if (reservations[id].left == 0) {
             reservations[id].status = "Committed";
             console.log("[CONFIRMED] Reservation " + id);
+
+            var customer = customers[reservations[id].customerid];
+
+            // reset the best overall cost
+            if (customer.bestcost == 0 ||
+                reservations[id].cost < customer.bestcost) {
+              customer.bestcost = reservations[id].cost;
+              customer.bestcostagentid = reservations[id].agentid;
+              customer.bestcostreservationid = id;
+            }
+
+            // init agent best cost
+            if (!customer.bestagentcost[reservations[id].agentid]) {
+              customer.bestagentcost[reservations[id].agentid] = 0;
+            }
+
+            // reset the agent's best cost
+            if (customer.bestagentcost[reservations[id].agentid] == 0 ||
+                reservations[id].cost < customer.bestagentcost[reservations[id].agentid]) {
+              customer.bestagentcost[reservations[id].agentid] = reservations[id].cost;
+            }
           }
         });
       }
@@ -401,7 +422,8 @@ app.put('/agents/:id/ping', function(req, res, next) {
     "timer": timer,
     "agents": agents,
     "customers": customers,
-    "providers": providers
+    "providers": providers,
+    "reservations": reservations
   });
 });
 
@@ -418,10 +440,6 @@ app.get('/customers', function(req, res, next) {
 
 app.get('/customers/:id', function(req, res, next) {
   res.send(customers[req.param.id]);
-});
-
-app.get('/routes', function(req, res, next) {
-  res.send(routes);
 });
 
 app.get('/providers', function(req, res, next) {
@@ -471,9 +489,10 @@ app.post('/reservations', function(req, res, next) {
   reservations[nextReservationId] = req.body;
   reservations[nextReservationId].status = "Trying";
   reservations[nextReservationId].left = Object.keys(req.body.routes).length;
-
+  reservations[nextReservationId].cost = 0;
 
   for (var r in routes) {
+    reservations[nextReservationId].cost += routes[r].cost;
     var p = providers[routes[r].spid];
     request({
       method: 'PUT',
@@ -502,7 +521,14 @@ app.post('/reservations', function(req, res, next) {
     });
   }
 
+  res.send({
+    id: nextReservationId
+  });
   nextReservationId++;
+});
+
+app.get('/routes', function(req, res, next) {
+  res.send(routes);
 });
 
 // catch 404 and forward to error handler
