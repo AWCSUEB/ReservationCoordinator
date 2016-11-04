@@ -505,7 +505,7 @@ app.post('/reservations', function(req, res, next) {
     }, function (err, res, body) {
       var id = body.id;
       if (reservations[id].status == "Trying") {
-        if (!err) {
+        if (!err && res.statusCode == 200) {
           // if all tries are successful let another timed function process commit
           reservations[id].left--;
           if (reservations[id].left == 0) {
