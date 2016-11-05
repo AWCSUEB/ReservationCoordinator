@@ -332,23 +332,25 @@ function reservationTest() {
 
             var customer = customers[reservations[id].customerid];
 
-            // reset the best overall cost
-            if (customer.bestcost == 0 ||
-                reservations[id].cost < customer.bestcost) {
-              customer.bestcost = reservations[id].cost;
-              customer.bestcostagentid = reservations[id].agentid;
-              customer.bestcostreservationid = id;
+            // reset the best overall hops and cost
+            if ((customer.besthopsandcost.hops == 0 && customer.besthopsandcost.cost == 0) ||
+                (reservations[id].hops >= customer.besthopsandcost.hops && reservations[id].cost < customer.besthopsandcost.cost)) {
+              customer.besthopsandcost.hops = reservations[id].hops;
+              customer.besthopsandcost.cost = reservations[id].cost;
+              customer.besthopsandcostagentid = reservations[id].agentid;
+              customer.besthopsandcostreservationid = id;
             }
 
-            // init agent best cost
-            if (!customer.bestagentcost[reservations[id].agentid]) {
-              customer.bestagentcost[reservations[id].agentid] = 0;
+            // init agent best hops and cost
+            if (!customer.bestagenthopsandcost[reservations[id].agentid]) {
+              customer.bestagenthopsandcost[reservations[id].agentid] = {hops: 0, cost: 0};
             }
 
-            // reset the agent's best cost
-            if (customer.bestagentcost[reservations[id].agentid] == 0 ||
-                reservations[id].cost < customer.bestagentcost[reservations[id].agentid]) {
-              customer.bestagentcost[reservations[id].agentid] = reservations[id].cost;
+            // reset the agent's best hops and cost
+            if ((customer.bestagenthopsandcost[reservations[id].agentid].hops == 0 && customer.bestagenthopsandcost[reservations[id].agentid].cost == 0) ||
+                (reservations[id].hops >= customer.bestagenthopsandcost[reservations[id].agentid].hops && reservations[id].cost < customer.bestagenthopsandcost[reservations[id].agentid].cost)) {
+              customer.bestagenthopsandcost[reservations[id].agentid].hops = reservations[id].hops;
+              customer.bestagenthopsandcost[reservations[id].agentid].cost = reservations[id].cost;
             }
 
             // remove reservation routes and add replacement routes
@@ -507,9 +509,11 @@ app.post('/reservations', function(req, res, next) {
   reservations[nextReservationId] = req.body;
   reservations[nextReservationId].status = "Trying";
   reservations[nextReservationId].left = Object.keys(req.body.routes).length;
+  reservations[nextReservationId].hops = 0;
   reservations[nextReservationId].cost = 0;
 
   for (var r in routes) {
+    reservations[nextReservationId].hops += 1;
     reservations[nextReservationId].cost += routes[r].cost;
     var p = providers[routes[r].spid];
     console.log("Reservation " + nextReservationId + " request: " + p.uri + "try/" + r);
