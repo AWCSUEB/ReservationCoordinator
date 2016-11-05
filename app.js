@@ -72,6 +72,27 @@ function setGameState(state) {
   console.log("GS=" + currentGameState + " PS=" + previousGameState);
 }
 
+function addRoutes(p) {
+  return function (err, res, body) {
+    var tmproutes = body;
+
+    // load all route pairs e.g. AP,CF etc
+    var routeslist = Object.keys(tmproutes);
+    console.log("Provider " + p.name + ": Adding " + routeslist.join(","));
+
+    // for each route in list push onto array for that pair
+    for (var j = 0; j < routeslist.length; j++) {
+      var pair = routeslist[j];
+      if (!routes[pair]) {
+        routes[pair] = [];
+      }
+
+      routes[pair].push(tmproutes[pair]);
+      p.routes.push(tmproutes[pair]);
+    }
+  }
+}
+
 function readyTest() {
   // Only run code while in NotReady
   if (currentGameState != "NotReady") {
@@ -90,31 +111,11 @@ function readyTest() {
         var p = providers[providerlist[i]];
         p.playing = true;
 
-        function cb(p) {
-          return function (err, res, body) {
-            var tmproutes = body;
-
-            // load all route pairs e.g. AP,CF etc
-            var routeslist = Object.keys(tmproutes);
-
-            // for each route in list push onto array for that pair
-            for (var j = 0; j < routeslist.length; j++) {
-              var pair = routeslist[j];
-              if (!routes[pair]) {
-                routes[pair] = [];
-              }
-
-              routes[pair].push(tmproutes[pair]);
-              p.routes.push(tmproutes[pair]);
-            }
-          }
-        }
-
         request({
           method: "POST",
           uri: p.uri + 'reset?n=' + routesToGen,
           json: true
-        }, cb(p));
+        }, addRoutes(p));
       }
 
       // generate customer list
@@ -348,6 +349,22 @@ function reservationTest() {
                 reservations[id].cost < customer.bestagentcost[reservations[id].agentid]) {
               customer.bestagentcost[reservations[id].agentid] = reservations[id].cost;
             }
+
+            // remove reservation routes and add replacement routes
+            for (route in reservations[id].routes) {
+              if (routes[route].length == 1) {
+                delete routes[route];
+              } else {
+                delete routes[route][0];
+              }
+              p = providers[reservations[re].routes[route].spid];
+              request({
+                method: 'POST',
+                uri: p.uri + 'add/1',
+                timeout: 30000,
+                json: true
+              }, addRoutes(p));
+            }
           }
         });
       }
@@ -494,6 +511,7 @@ app.post('/reservations', function(req, res, next) {
   for (var r in routes) {
     reservations[nextReservationId].cost += routes[r].cost;
     var p = providers[routes[r].spid];
+    console.log("Reservation " + nextReservationId + " request: " + p.uri + "try/" + r);
     request({
       method: 'PUT',
       uri: p.uri + 'try/' + r,
@@ -504,6 +522,7 @@ app.post('/reservations', function(req, res, next) {
       json: true
     }, function (err, res, body) {
       var id = body.id;
+      console.log("Reservation " + id + " response");
       if (reservations[id].status == "Trying") {
         if (!err && res.statusCode == 200) {
           // if all tries are successful let another timed function process commit
