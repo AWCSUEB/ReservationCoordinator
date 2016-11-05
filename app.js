@@ -14,9 +14,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // sets number of customers and routes per provider
 // this should be dynamic
-var custsToGen = 5;
-var routesToGen = 24;
-var timerDefault = 180;
+var custsToGen = process.env.CUSTSTOGEN;
+var routesToGen = process.env.ROUTESTOGEN;
+var timerDefault = process.env.TIMERDEFAULT;
+var deleteAgentTimer = process.env.DELETEAGENTTIMER;
+var deleteProviderTimer = process.env.DELETEPROVIDERTIMER;
 
 // Each agent should have
 // ID
@@ -242,7 +244,7 @@ function cleanupTest() {
   for (var a in dc.badAgents) {
     last = agents[dc.badAgents[a]].lastpingtime;
     now = new Date().getTime();
-    if (now - last > 10000) {
+    if (now - last > deleteAgentTimer) {
       if (currentGameState == "NotReady" || (currentGameState != "NotReady" && agents[dc.badAgents[a]].playing == false)) {
         console.log("*** Deleting " + agents[dc.badAgents[a]].name + " ***");
         delete agents[dc.badAgents[a]];
@@ -253,7 +255,7 @@ function cleanupTest() {
   for (var p in dc.badProviders) {
     last = providers[dc.badProviders[p]].lastpingtime;
     now = new Date().getTime();
-    if (now - last > 10000) {
+    if (now - last > deleteProviderTimer) {
       if (currentGameState == "NotReady") {
         console.log("*** Deleting " + providers[dc.badProviders[p]].name + " ***");
         delete providers[dc.badProviders[p]];

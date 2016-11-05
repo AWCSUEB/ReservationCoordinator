@@ -3,6 +3,11 @@
     <envs>
       <env name="DEBUG" value="ReservationCoordinator:*" />
       <env name="PORT" value="3000" />
+      <env name="CUSTSTOGEN" value="8" />
+      <env name="ROUTESTOGEN" value="24" />
+      <env name="TIMERDEFAULT" value="180" />
+      <env name="DELETEAGENTTIMER" value="10000" />
+      <env name="DELETEPROVIDERTIMER" value="10000" />
     </envs>
     <browser url="http://localhost:3000/" />
     <profiling v8-profiler-path="" />
