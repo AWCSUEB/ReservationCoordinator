@@ -220,6 +220,7 @@ function finishedTest() {
     customers = {};
     routes = {};
     reservations = {};
+    nextReservationId = 1;
     resetCount = 0;
 
     for (var a in agents) {
@@ -355,7 +356,7 @@ function reservationTest() {
               if (routes[route].length == 1) {
                 delete routes[route];
               } else {
-                delete routes[route][0];
+                routes[route].splice(0, 1);
               }
               p = providers[reservations[re].routes[route].spid];
               request({
