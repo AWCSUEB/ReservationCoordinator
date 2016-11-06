@@ -521,6 +521,7 @@ app.put('/providers/:id/ping', function(req, res, next) {
 
 // Register a new provider
 app.post('/providers', function(req, res, next) {
+  console.log(req.body.name + " @ " + req.body.uri);
   providers[nextProviderId] = req.body;
   providers[nextProviderId].lastpingtime = new Date();
   providers[nextProviderId].lasterrcount = 0;
