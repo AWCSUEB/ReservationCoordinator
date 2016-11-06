@@ -71,13 +71,7 @@ var prevProvidersNotReady;
 var previousGameState = "Unknown";
 var currentGameState = "NotReady";
 
-var port = process.env.RC_SERVICE_PORT || process.env.PORT;
-console.log("PORT=" + port);
-app.set("port", port);
-
-var host = process.env.RC_SERVICE_HOST || "";
-console.log("HOST=" + host);
-app.set("host", host);
+app.set("port", process.env.PORT);
 
 function setGameState(state) {
   previousGameState = currentGameState;
