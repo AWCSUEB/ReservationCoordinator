@@ -365,7 +365,7 @@ function reservationTest() {
 
             // init agent best hops and cost
             if (!customer.bestagenthopsandcost[reservations[id].agentid]) {
-              customer.bestagenthopsandcost[reservations[id].agentid] = {hops: 0, cost: 0};
+              customer.bestagenthopsandcost[reservations[id].agentid] = {hops: 0, cost: 0, count: 0};
             }
 
             // reset the agent's best hops and cost
@@ -374,6 +374,7 @@ function reservationTest() {
                 (reservations[id].hops == customer.bestagenthopsandcost[reservations[id].agentid].hops && reservations[id].cost < customer.bestagenthopsandcost[reservations[id].agentid].cost)) {
               customer.bestagenthopsandcost[reservations[id].agentid].hops = reservations[id].hops;
               customer.bestagenthopsandcost[reservations[id].agentid].cost = reservations[id].cost;
+              customer.bestagenthopsandcost[reservations[id].agentid].count++;
             }
 
             // remove reservation routes and add replacement routes
@@ -390,6 +391,20 @@ function reservationTest() {
                 timeout: 30000,
                 json: true
               }, addRoutes(p));
+            }
+
+            // update commission schedule for each agent
+            for (var a in agents) {
+              agents[a].commission = 0;
+            }
+
+            for (var c in customers) {
+              if (customers[c].besthopsandcostagentid != 0) {
+                // 10% commission - $5 for each rebooking
+                var commission = customers[c].besthopsandcost.cost / 10;
+                var penalty = 5 * (customers[c].bestagenthopsandcost[customers[c].besthopsandcostagentid].count - 1);
+                agents[customers[c].besthopsandcostagentid].commission += commission - penalty;
+              }
             }
           }
         });
