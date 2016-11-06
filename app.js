@@ -57,6 +57,11 @@ var timer = timerDefault;
 var timerHandle;
 var resetCount = 0;
 
+var prevAgentsReady;
+var prevProvidersReady;
+var prevAgentsNotReady;
+var prevProvidersNotReady;
+
 // game states
 // NotReady: waiting for agents and sp to connect and ready
 // Ready: all agents are ready
@@ -102,7 +107,16 @@ function readyTest() {
   }
 
   var rc = utility.readyCount(agents, providers);
-  console.log("AR=" + rc.agentsReady.length + " PR=" + rc.providersReady.length + " ANR=" + rc.agentsNotReady.length + " PNR=" + rc.providersNotReady.length);
+  if (!(prevAgentsReady == rc.agentsReady.length &&
+      prevProvidersReady == rc.providersReady.length &&
+      prevAgentsNotReady == rc.agentsNotReady.length &&
+      prevProvidersNotReady == rc.providersNotReady)) {
+    prevAgentsReady = rc.agentsReady.length;
+    prevProvidersReady = rc.providersReady.length;
+    prevAgentsNotReady = rc.agentsNotReady.length;
+    prevProvidersNotReady = rc.providersNotReady.length;
+    console.log("AR=" + rc.agentsReady.length + " PR=" + rc.providersReady.length + " ANR=" + rc.agentsNotReady.length + " PNR=" + rc.providersNotReady.length);
+  }
 
   if (rc.agentsReady.length > 0 && rc.agentsNotReady.length == 0 && rc.providersReady.length > 0 && rc.providersNotReady.length == 0) {
     setGameState("Ready");
@@ -336,7 +350,8 @@ function reservationTest() {
 
             // reset the best overall hops and cost
             if ((customer.besthopsandcost.hops == 0 && customer.besthopsandcost.cost == 0) ||
-                (reservations[id].hops >= customer.besthopsandcost.hops && reservations[id].cost < customer.besthopsandcost.cost)) {
+                (reservations[id].hops > customer.besthopsandcost.hops) ||
+                (reservations[id].hops == customer.besthopsandcost.hops && reservations[id].cost < customer.besthopsandcost.cost)) {
               customer.besthopsandcost.hops = reservations[id].hops;
               customer.besthopsandcost.cost = reservations[id].cost;
               customer.besthopsandcostagentid = reservations[id].agentid;
@@ -350,7 +365,8 @@ function reservationTest() {
 
             // reset the agent's best hops and cost
             if ((customer.bestagenthopsandcost[reservations[id].agentid].hops == 0 && customer.bestagenthopsandcost[reservations[id].agentid].cost == 0) ||
-                (reservations[id].hops >= customer.bestagenthopsandcost[reservations[id].agentid].hops && reservations[id].cost < customer.bestagenthopsandcost[reservations[id].agentid].cost)) {
+                (reservations[id].hops > customer.bestagenthopsandcost[reservations[id].agentid].hops) ||
+                (reservations[id].hops == customer.bestagenthopsandcost[reservations[id].agentid].hops && reservations[id].cost < customer.bestagenthopsandcost[reservations[id].agentid].cost)) {
               customer.bestagenthopsandcost[reservations[id].agentid].hops = reservations[id].hops;
               customer.bestagenthopsandcost[reservations[id].agentid].cost = reservations[id].cost;
             }
