@@ -73,6 +73,12 @@ var currentGameState = "NotReady";
 
 app.set("port", process.env.PORT);
 
+console.log("CUSTSTOGEN=" + process.env.CUSTSTOGEN);
+console.log("ROUTESTOGEN=" + process.env.ROUTESTOGEN);
+console.log("TIMERDEFAULT=" + process.env.TIMERDEFAULT);
+console.log("DELETEAGENTTIMER=" + process.env.DELETEAGENTTIMER);
+console.log("DELETEPROVIDERTIMER=" + process.env.DELETEPROVIDERTIMER);
+
 function setGameState(state) {
   previousGameState = currentGameState;
   currentGameState = state;
