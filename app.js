@@ -120,6 +120,13 @@ function readyTest() {
 
   if (rc.agentsReady.length > 0 && rc.agentsNotReady.length == 0 && rc.providersReady.length > 0 && rc.providersNotReady.length == 0) {
     setGameState("Ready");
+    customers = {};
+    for (var a in agents) {
+      if (agents[a].ready) {
+        agents[a].commission = 0;
+      }
+    }
+
     setTimeout(function() {
       // reset and collect routes from service providers
       var providerlist = Object.keys(providers);
@@ -142,7 +149,6 @@ function readyTest() {
         if (agents[a].ready) {
           agents[a].ready = false;
           agents[a].playing = true;
-          agents[a].commission = 0;
         }
       }
 
@@ -233,7 +239,6 @@ function finishedTest() {
     setGameState("NotReady");
     clearInterval(timerHandle);
     timer = timerDefault;
-    customers = {};
     routes = {};
     reservations = {};
     nextReservationId = 1;
