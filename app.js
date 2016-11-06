@@ -71,7 +71,7 @@ var prevProvidersNotReady;
 var previousGameState = "Unknown";
 var currentGameState = "NotReady";
 
-var port = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || 3000;
+var port = process.env.RC_SERVICE_PORT || process.env.PORT;
 console.log("PORT=" + port);
 
 function setGameState(state) {
