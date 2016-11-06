@@ -73,6 +73,7 @@ var currentGameState = "NotReady";
 
 var port = process.env.RC_SERVICE_PORT || process.env.PORT;
 console.log("PORT=" + port);
+app.set("port", port);
 
 function setGameState(state) {
   previousGameState = currentGameState;
