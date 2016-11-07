@@ -2,7 +2,7 @@
   <configuration default="false" name="bin\www" type="NodeJSConfigurationType" factoryName="Node.js" path-to-node="project" path-to-js-file="bin/www" working-dir="$PROJECT_DIR$">
     <envs>
       <env name="DEBUG" value="ReservationCoordinator:*" />
-      <env name="PORT" value="3000" />
+      <env name="PORT" value="80" />
       <env name="CUSTSTOGEN" value="8" />
       <env name="ROUTESTOGEN" value="24" />
       <env name="TIMERDEFAULT" value="180" />

@@ -53,6 +53,8 @@ var routes = {};
 var reservations = {};
 var nextReservationId = 1;
 
+var messagesForAgent = {};
+
 var timer = timerDefault;
 var timerHandle;
 var resetCount = 0;
@@ -79,9 +81,20 @@ console.log("TIMERDEFAULT=" + process.env.TIMERDEFAULT);
 console.log("DELETEAGENTTIMER=" + process.env.DELETEAGENTTIMER);
 console.log("DELETEPROVIDERTIMER=" + process.env.DELETEPROVIDERTIMER);
 
+function broadcastMessage(source, message) {
+  for (var m in messagesForAgent) {
+    messagesForAgent[m].push("[" + source + "] " + message);
+  }
+}
+
+function broadcastMessageToAgent(source, message, agentid) {
+  messagesForAgent[agentid].push("[" + source + "] " + message);
+}
+
 function setGameState(state) {
   previousGameState = currentGameState;
   currentGameState = state;
+  broadcastMessage("RC", "Current Game State: " + currentGameState);
   console.log("GS=" + currentGameState + " PS=" + previousGameState);
 }
 
@@ -122,52 +135,57 @@ function readyTest() {
     prevAgentsNotReady = rc.agentsNotReady.length;
     prevProvidersNotReady = rc.providersNotReady.length;
     console.log("AR=" + rc.agentsReady.length + " PR=" + rc.providersReady.length + " ANR=" + rc.agentsNotReady.length + " PNR=" + rc.providersNotReady.length);
-  }
 
-  if (rc.agentsReady.length > 0 && rc.agentsNotReady.length == 0 && rc.providersReady.length > 0 && rc.providersNotReady.length == 0) {
-    setGameState("Ready");
-    customers = {};
-    for (var a in agents) {
-      if (agents[a].ready) {
-        agents[a].commission = 0;
-      }
-    }
+    if (rc.agentsReady.length > 0 && rc.agentsNotReady.length == 0) {
+      broadcastMessage("RC", "All agents ready");
+      if (rc.providersReady.length > 0 && rc.providersNotReady.length == 0) {
+        setGameState("Ready");
+        customers = {};
+        for (var a in agents) {
+          if (agents[a].ready) {
+            agents[a].commission = 0;
+          }
+        }
 
-    setTimeout(function() {
-      // reset and collect routes from service providers
-      var providerlist = Object.keys(providers);
-      for (var i=0; i<providerlist.length; i++) {
-        var p = providers[providerlist[i]];
-        p.playing = true;
+        setTimeout(function() {
+          // reset and collect routes from service providers
+          var providerlist = Object.keys(providers);
+          for (var i=0; i<providerlist.length; i++) {
+            var p = providers[providerlist[i]];
+            p.playing = true;
 
-        request({
-          method: "POST",
-          uri: p.uri + 'reset?n=' + routesToGen,
-          json: true
-        }, addRoutes(p));
-      }
+            request({
+              method: "POST",
+              uri: p.uri + 'reset?n=' + routesToGen,
+              json: true
+            }, addRoutes(p));
+          }
 
-      // generate customer list
-      customers = utility.genCustRequests(custsToGen);
+          // generate customer list
+          customers = utility.genCustRequests(custsToGen);
 
-      // mark playing agents
-      for (var a in agents) {
-        if (agents[a].ready) {
-          agents[a].ready = false;
-          agents[a].playing = true;
+          // mark playing agents
+          for (var a in agents) {
+            if (agents[a].ready) {
+              agents[a].ready = false;
+              agents[a].playing = true;
+            }
+          }
+
+          // client will start polling ready frequently and will grab routes and customer list when available
+          setGameState("Pending");
+        }, 3000);
+      } else {
+        broadcastMessage("Waiting for SPs");
+
+        for (var p in providers) {
+          providers[p].playing = false;
         }
       }
-
-      // client will start polling ready frequently and will grab routes and customer list when available
-      setGameState("Pending");
-    }, 3000);
-  } else {
-    for (var a in agents) {
-      agents[a].playing = false;
-    }
-
-    for (var p in providers) {
-      providers[p].playing = false;
+    } else {
+      for (var a in agents) {
+        agents[a].playing = false;
+      }
     }
   }
 }
@@ -466,13 +484,23 @@ app.post('/agents', function(req, res, next) {
   agents[nextAgentId].playing = false;
   agents[nextAgentId].ready = false;
   agents[nextAgentId].commission = 0;
+  agents[nextAgentId].pingId = 0;
+
+  messagesForAgent[nextAgentId] = [];
 
   // return agent id
+  broadcastMessage("RC", req.body.name + " (" + nextAgentId + ") Connected");
+  broadcastMessageToAgent("RC", "Current Game State: " + currentGameState, nextAgentId);
   res.send({
     "id": nextAgentId,
     "name": agents[nextAgentId].name
   });
   nextAgentId++;
+});
+
+app.post('/agents/:id/chat', function(req, res, next) {
+  broadcastMessage(agents[req.params.id].name, req.body.message);
+  res.send();
 });
 
 app.put('/agents/:id/ping', function(req, res, next) {
@@ -481,14 +509,24 @@ app.put('/agents/:id/ping', function(req, res, next) {
   } else {
     res.statusCode = 404;
   }
+
+  var agentPingId = parseInt(agents[req.params.id].pingId);
+  if (req.body.pingId == agentPingId + 1) {
+    agents[req.params.id].pingId = req.body.pingId;
+  }
+
   res.send({
     "currentGameState": currentGameState,
     "timer": timer,
     "agents": agents,
     "customers": customers,
     "providers": providers,
-    "reservations": reservations
+    "messages": messagesForAgent[req.params.id]
   });
+
+  if (req.body.pingId == agentPingId + 1) {
+    messagesForAgent[req.params.id] = [];
+  }
 });
 
 app.put('/agents/:id/ready', function(req, res, next) {
@@ -522,6 +560,7 @@ app.put('/providers/:id/ping', function(req, res, next) {
 // Register a new provider
 app.post('/providers', function(req, res, next) {
   console.log(req.body.name + " @ " + req.body.uri);
+  broadcastMessage("RC", req.body.name + " Connected");
   providers[nextProviderId] = req.body;
   providers[nextProviderId].lastpingtime = new Date();
   providers[nextProviderId].lasterrcount = 0;
