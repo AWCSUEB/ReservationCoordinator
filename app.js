@@ -500,7 +500,7 @@ app.post('/agents', function(req, res, next) {
 
 app.post('/agents/:id/chat', function(req, res, next) {
   broadcastMessage(agents[req.params.id].name, req.body.message);
-  res.send();
+  res.send({});
 });
 
 app.put('/agents/:id/ping', function(req, res, next) {
