@@ -12,13 +12,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// sets number of customers and routes per provider
-// this should be dynamic
-var custsToGen = process.env.CUSTSTOGEN;
-var routesToGen = process.env.ROUTESTOGEN;
-var timerDefault = process.env.TIMERDEFAULT;
-var deleteAgentTimer = process.env.DELETEAGENTTIMER;
-var deleteProviderTimer = process.env.DELETEPROVIDERTIMER;
+var custsToGen = process.env.CUSTSTOGEN || 8;
+var routesToGen = process.env.ROUTESTOGEN || 24;
+var timerDefault = process.env.TIMERDEFAULT || 180;
+var deleteAgentTimer = process.env.DELETEAGENTTIMER || 10000;
+var deleteProviderTimer = process.env.DELETEPROVIDERTIMER || 10000;
+var commissionRatio = process.env.COMMISSIONRATIO || .10;
+var penaltyAmount = process.env.PENALTYAMOUNT || 5;
 
 // Each agent should have
 // ID
@@ -80,6 +80,8 @@ console.log("ROUTESTOGEN=" + process.env.ROUTESTOGEN);
 console.log("TIMERDEFAULT=" + process.env.TIMERDEFAULT);
 console.log("DELETEAGENTTIMER=" + process.env.DELETEAGENTTIMER);
 console.log("DELETEPROVIDERTIMER=" + process.env.DELETEPROVIDERTIMER);
+console.log("COMMISSIONRATIO=" + process.env.COMMISSIONRATIO);
+console.log("PENALTYAMOUNT=" + process.env.PENALTYAMOUNT);
 
 function broadcastMessage(source, message) {
   for (var m in messagesForAgent) {
@@ -176,7 +178,7 @@ function readyTest() {
           setGameState("Pending");
         }, 3000);
       } else {
-        broadcastMessage("Waiting for SPs");
+        broadcastMessage("RC", "Waiting for SPs");
 
         for (var p in providers) {
           providers[p].playing = false;
@@ -268,8 +270,30 @@ function finishedTest() {
     nextReservationId = 1;
     resetCount = 0;
 
+    var topAgents = [];
+    var topCommission = 0;
+
     for (var a in agents) {
       agents[a].playing = false;
+      if (agents[a].commission > topCommission) {
+        topAgents = [];
+        topAgents.push(agents[a]);
+        topCommission = agents[a].commission;
+      } else if (agents[a].commission == topCommission) {
+        topAgents.push(agents[a]);
+      }
+    }
+
+    if (previousGameState != "Disconnected") {
+      if (topCommission > 0) {
+        broadcastMessage("RC", topAgents.map(function (el) {
+              return el.name;
+            }).join(", ") + " Wins with $" + parseFloat(topCommission).toFixed(2) + " !!!");
+      } else {
+        broadcastMessage("RC", "No Winner: Game Reset");
+      }
+    } else {
+      broadcastMessage("RC", "SP Timeout: Game Reset");
     }
 
     for (var p in providers) {
@@ -343,6 +367,7 @@ function reservationTest() {
           if (reservations[id].left == 0) {
             reservations[id].status = "Cancelled";
             console.log("[CANCELLED] Reservation " + id);
+            broadcastMessageToAgent("RC", "Cancelled Reservation for Route " + route, reservations[id].agentid);
           }
         });
       }
@@ -372,9 +397,6 @@ function reservationTest() {
 
           reservations[id].left--;
           if (reservations[id].left == 0) {
-            reservations[id].status = "Committed";
-            console.log("[CONFIRMED] Reservation " + id);
-
             var customer = customers[reservations[id].customerid];
 
             // reset the best overall hops and cost
@@ -425,11 +447,15 @@ function reservationTest() {
             for (var c in customers) {
               if (customers[c].besthopsandcostagentid != 0) {
                 // 10% commission - $5 for each rebooking
-                var commission = customers[c].besthopsandcost.cost / 10;
-                var penalty = 5 * (customers[c].bestagenthopsandcost[customers[c].besthopsandcostagentid].count - 1);
+                var commission = customers[c].besthopsandcost.cost * commissionRatio;
+                var penalty = penaltyAmount * (customers[c].bestagenthopsandcost[customers[c].besthopsandcostagentid].count - 1);
                 agents[customers[c].besthopsandcostagentid].commission += commission - penalty;
               }
             }
+
+            reservations[id].status = "Committed";
+            console.log("[CONFIRMED] Reservation " + id);
+            broadcastMessageToAgent("RC", "Confirmed Reservation for Route " + route, reservations[id].agentid);
           }
         });
       }
@@ -460,7 +486,7 @@ app.options('*', function(req, res, next) {
 app.get('/', function(req, res, next) {
   // return game state
   res.send({
-    gamestate: currentGameState,
+    gameState: currentGameState,
     timer: timer
   })
 });
@@ -493,7 +519,9 @@ app.post('/agents', function(req, res, next) {
   broadcastMessageToAgent("RC", "Current Game State: " + currentGameState, nextAgentId);
   res.send({
     "id": nextAgentId,
-    "name": agents[nextAgentId].name
+    "name": agents[nextAgentId].name,
+    "commissionRatio": commissionRatio,
+    "penaltyAmount": penaltyAmount
   });
   nextAgentId++;
 });

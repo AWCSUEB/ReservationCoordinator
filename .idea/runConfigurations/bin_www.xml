@@ -8,6 +8,8 @@
       <env name="TIMERDEFAULT" value="180" />
       <env name="DELETEAGENTTIMER" value="10000" />
       <env name="DELETEPROVIDERTIMER" value="10000" />
+      <env name="COMMISSIONRATIO" value=".10" />
+      <env name="PENALTYAMOUNT" value="5" />
     </envs>
     <browser url="http://localhost:3000/" />
     <profiling v8-profiler-path="" />
