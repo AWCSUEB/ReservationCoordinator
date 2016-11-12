@@ -473,7 +473,7 @@ function reservationTest() {
 
             reservations[id].status = "Committed";
             console.log("[CONFIRMED] Reservation " + id);
-            broadcastMessageToAgent("RC", "Confirmed Reservation for Route " + route, reservations[id].customerid);
+            broadcastMessageToAgent("RC", "Confirmed Reservation for Route " + reservations[id].customerid, reservations[id].agentid);
           }
         });
       }
