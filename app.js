@@ -173,9 +173,11 @@ function readyTest() {
               var p = providers[providerlist[i]];
               p.playing = true;
 
+              var myRoutesToGen = routesToGen / providerlist.length;
+
               request({
                 method: "POST",
-                uri: p.uri + 'reset?n=' + routesToGen,
+                uri: p.uri + 'reset?n=' + myRoutesToGen,
                 json: true
               }, addRoutes(p));
             }
@@ -227,7 +229,8 @@ function runningTest() {
 
   for (var i=0; i<providerList.length; i++) {
     var p = providers[providerList[i]];
-    if (p.routes.length == routesToGen) {
+    var myRoutesToGen = routesToGen / providerList.length;
+    if (p.routes.length == myRoutesToGen) {
       providersReady++;
     }
   }
