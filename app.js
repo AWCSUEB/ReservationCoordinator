@@ -153,7 +153,7 @@ function readyTest() {
       readyTimeoutCounter = readyTimeout;
     } else {
       if (rc.agentsReady.length > 0) {
-        if (rc.agentsNotReady.length == 0 || readyTimeoutCounter == 0) {
+        if ((rc.agentsReady.length > 1 && rc.agentsNotReady.length == 0) || readyTimeoutCounter == 0) {
           if (rc.agentsNotReady.length == 0) {
             broadcastMessage("RC", "Starting game with all agents");
           } else {
@@ -247,7 +247,11 @@ function disconnectTest() {
 
   // Only pause game for disconnected SP, not for disconnected Agent unless all are bad
   if (dc.badProviders > 0 || dc.goodAgents == 0) {
-    setGameState("Disconnected");
+    for (var p in dc.badProviders) {
+      if (providers[dc.badProviders[p]].playing) { // only disconnected state if playing provider disconnects
+        setGameState("Disconnected");
+      }
+    }
   }
 }
 
